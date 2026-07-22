@@ -12,12 +12,17 @@ Project Ascend is built to act as a second brain—integrating task management, 
 
 ```text
 PROJECT ASCEND_LIFEOS/
-├── app/          # Core application source code
-├── assets/       # Visuals, icons, illustrations, and static media
-├── designs/      # UI/UX design mockups, wireframes, and schemas
-├── docs/         # Detailed system documentation and guides
-├── README.md     # Project entry point and overview
-└── roadmap.md    # Multi-phase execution and milestones
+├── app/           # Core application source code
+├── architecture/  # Technical blueprints, diagrams, and design docs
+├── assets/        # Visuals, icons, illustrations, and static media
+├── designs/       # UI/UX design mockups, wireframes, and schemas
+├── docs/          # Product spec docs, brainstorms, and decision log (ADRs)
+│   ├── brainstorm.md
+│   └── DECISIONS.md
+├── meeting-notes/ # Developer logs and alignment notes
+├── research/      # Technical spikes, prototyping logs, and studies
+├── README.md      # Project entry point and overview
+└── roadmap.md     # Multi-phase execution and milestones
 ```
 
 ---
