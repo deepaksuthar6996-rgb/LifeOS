@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:sqflite/sqflite.dart';
@@ -191,43 +191,35 @@ class BackupService {
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
     final defaultFileName = 'ascend_backup_$timestamp.json';
 
-    final String? savePath = await FilePicker.platform.saveFile(
+    final Uri? saveUri = await FilePicker.saveFile(
       dialogTitle: 'Export Ascend LifeOS Backup',
       fileName: defaultFileName,
+      bytes: Uint8List.fromList(utf8.encode(jsonString)),
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
 
-    if (savePath == null) {
-      return null; // User cancelled
-    }
-
-    final file = File(savePath);
-    await file.writeAsString(jsonString, flush: true);
-    return savePath;
+    return saveUri?.toString();
   }
 
   /// Prompts user to pick a JSON backup file and restores the SQLite database
   Future<ImportResult?> importBackupFile() async {
-    final FilePickerResult? result = await FilePicker.platform.pickFiles(
+    final List<PlatformFile> result = await FilePicker.pickFiles(
       dialogTitle: 'Select Ascend LifeOS JSON Backup',
       type: FileType.custom,
       allowedExtensions: ['json'],
-      withData: true,
     );
 
-    if (result == null || result.files.isEmpty) {
+    if (result.isEmpty) {
       return null; // User cancelled
     }
 
-    final pickedFile = result.files.first;
+    final pickedFile = result.first;
     String jsonString = '';
 
-    if (pickedFile.bytes != null) {
-      jsonString = utf8.decode(pickedFile.bytes!);
-    } else if (pickedFile.path != null) {
-      final file = File(pickedFile.path!);
-      jsonString = await file.readAsString();
+    final bytes = await pickedFile.readAsBytes();
+    if (bytes.isNotEmpty) {
+      jsonString = utf8.decode(bytes);
     }
 
     if (jsonString.trim().isEmpty) {

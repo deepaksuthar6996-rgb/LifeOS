@@ -1,4 +1,6 @@
-import 'package:sqflite/sqflite.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import '../../models/goal.dart';
 import '../../models/milestone.dart';
@@ -27,6 +29,13 @@ class DBHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
+    
+    // Initialize FFI for Windows/Linux
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+    
     _database = await _initDB(databaseName);
     return _database!;
   }

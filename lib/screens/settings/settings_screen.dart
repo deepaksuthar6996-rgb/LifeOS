@@ -200,7 +200,8 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ),
       ),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(18.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -564,6 +565,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
           ],
+        ),
         ),
       ),
     );

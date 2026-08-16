@@ -80,7 +80,8 @@ class GoalListScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: goalsAsync.when(
+      body: SafeArea(
+        child: goalsAsync.when(
         data: (goals) {
           if (goals.isEmpty) {
             return _buildEmptyState(context);
@@ -148,6 +149,7 @@ class GoalListScreen extends ConsumerWidget {
           ),
         ),
       ),
+    ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openCreateGoalModal(context),
         backgroundColor: Colors.indigoAccent,

@@ -147,8 +147,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ],
       ),
-      body: AmbientGlowBackground(
-        child: dashboardAsync.when(
+      body: SafeArea(
+        child: AmbientGlowBackground(
+          child: dashboardAsync.when(
         data: (state) {
           final filteredTasks = _filterTasks(state.incompleteTasks);
 
@@ -328,6 +329,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ],
             ),
+          ),
           ),
         ),
       ),
