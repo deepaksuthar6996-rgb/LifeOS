@@ -20,10 +20,11 @@ class DBHelper {
   static const String tableTasks = 'tasks';
   static const String tableEvents = 'events';
   static const String tablePauseModes = 'pause_modes';
+  static const String tableCategories = 'categories';
 
   // Database Info
   static String databaseName = 'ascend_lifeos.db';
-  static const int _databaseVersion = 5;
+  static const int _databaseVersion = 6;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -102,9 +103,65 @@ class DBHelper {
         )
       ''');
     }
+    if (oldVersion < 6) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableCategories (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE
+        )
+      ''');
+      final defaults = ['Career', 'Health', 'Skill Development', 'Personal'];
+      for (final name in defaults) {
+        await db.insert(
+          tableCategories,
+          {
+            'id': name.toLowerCase().replaceAll(' ', '_'),
+            'name': name,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+      try {
+        final List<Map<String, dynamic>> existingGoals = await db.query(tableGoals);
+        for (final row in existingGoals) {
+          final cat = row['category'] as String?;
+          if (cat != null && cat.trim().isNotEmpty) {
+            final trimmed = cat.trim();
+            await db.insert(
+              tableCategories,
+              {
+                'id': trimmed.toLowerCase().replaceAll(' ', '_'),
+                'name': trimmed,
+              },
+              conflictAlgorithm: ConflictAlgorithm.ignore,
+            );
+          }
+        }
+      } catch (_) {}
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
+    // Create Categories Table
+    await db.execute('''
+      CREATE TABLE $tableCategories (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE
+      )
+    ''');
+
+    final defaults = ['Career', 'Health', 'Skill Development', 'Personal'];
+    for (final name in defaults) {
+      await db.insert(
+        tableCategories,
+        {
+          'id': name.toLowerCase().replaceAll(' ', '_'),
+          'name': name,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+
     // Create Goals Table
     await db.execute('''
       CREATE TABLE $tableGoals (
@@ -836,7 +893,43 @@ class DBHelper {
       await txn.delete(tableTasks);
       await txn.delete(tableMilestones);
       await txn.delete(tableGoals);
+      await txn.delete(tableCategories);
+      final defaults = ['Career', 'Health', 'Skill Development', 'Personal'];
+      for (final name in defaults) {
+        await txn.insert(
+          tableCategories,
+          {
+            'id': name.toLowerCase().replaceAll(' ', '_'),
+            'name': name,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
     });
+  }
+
+  // ==========================================
+  // CATEGORY OPERATIONS
+  // ==========================================
+
+  Future<List<String>> getAllCategoryNames() async {
+    final db = await instance.database;
+    final result = await db.query(tableCategories);
+    return result.map((row) => row['name'] as String).toList();
+  }
+
+  Future<void> insertCategory(String name) async {
+    final db = await instance.database;
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    await db.insert(
+      tableCategories,
+      {
+        'id': trimmed.toLowerCase().replaceAll(' ', '_'),
+        'name': trimmed,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
   }
 
   Future<void> close() async {

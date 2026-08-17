@@ -80,17 +80,55 @@ class BackupService {
           ? decoded['data'] as Map<String, dynamic>
           : decoded;
 
-      final rawGoals = dataMap['goals'] as List<dynamic>? ?? [];
-      final rawMilestones = dataMap['milestones'] as List<dynamic>? ?? [];
-      final rawTasks = dataMap['tasks'] as List<dynamic>? ?? [];
-      final rawEvents = dataMap['events'] as List<dynamic>? ?? [];
-      final rawPauseModes = dataMap['pauseModes'] as List<dynamic>? ?? [];
+      final goalsList = dataMap['goals'];
+      final rawGoals = goalsList is List ? goalsList : [];
 
-      final goals = rawGoals.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      final milestones = rawMilestones.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      final tasks = rawTasks.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      final events = rawEvents.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      final pauseModes = rawPauseModes.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final milestonesList = dataMap['milestones'];
+      final rawMilestones = milestonesList is List ? milestonesList : [];
+
+      final tasksList = dataMap['tasks'];
+      final rawTasks = tasksList is List ? tasksList : [];
+
+      final eventsList = dataMap['events'];
+      final rawEvents = eventsList is List ? eventsList : [];
+
+      final pauseModesList = dataMap['pauseModes'];
+      final rawPauseModes = pauseModesList is List ? pauseModesList : [];
+
+      final goals = <Map<String, dynamic>>[];
+      for (final e in rawGoals) {
+        if (e is Map) {
+          goals.add(Map<String, dynamic>.from(e));
+        }
+      }
+
+      final milestones = <Map<String, dynamic>>[];
+      for (final e in rawMilestones) {
+        if (e is Map) {
+          milestones.add(Map<String, dynamic>.from(e));
+        }
+      }
+
+      final tasks = <Map<String, dynamic>>[];
+      for (final e in rawTasks) {
+        if (e is Map) {
+          tasks.add(Map<String, dynamic>.from(e));
+        }
+      }
+
+      final events = <Map<String, dynamic>>[];
+      for (final e in rawEvents) {
+        if (e is Map) {
+          events.add(Map<String, dynamic>.from(e));
+        }
+      }
+
+      final pauseModes = <Map<String, dynamic>>[];
+      for (final e in rawPauseModes) {
+        if (e is Map) {
+          pauseModes.add(Map<String, dynamic>.from(e));
+        }
+      }
 
       const goalColumns = {'id', 'title', 'description', 'category', 'targetDate', 'priority'};
       const milestoneColumns = {'id', 'goalId', 'title', 'targetDate', 'isCompleted'};
@@ -107,6 +145,20 @@ class BackupService {
         await txn.delete(DBHelper.tableTasks);
         await txn.delete(DBHelper.tableMilestones);
         await txn.delete(DBHelper.tableGoals);
+        await txn.delete(DBHelper.tableCategories);
+
+        // Re-seed default categories
+        final defaults = ['Career', 'Health', 'Skill Development', 'Personal'];
+        for (final name in defaults) {
+          await txn.insert(
+            DBHelper.tableCategories,
+            {
+              'id': name.toLowerCase().replaceAll(' ', '_'),
+              'name': name,
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
 
         // Bulk insert in dependency order: Goals -> Milestones -> Tasks -> Events -> Pause Modes
         for (final rawGoal in goals) {
@@ -118,6 +170,20 @@ class BackupService {
               sanitized,
               conflictAlgorithm: ConflictAlgorithm.replace,
             );
+
+            // Register category dynamically
+            final cat = sanitized['category'] as String?;
+            if (cat != null && cat.trim().isNotEmpty) {
+              final trimmed = cat.trim();
+              await txn.insert(
+                DBHelper.tableCategories,
+                {
+                  'id': trimmed.toLowerCase().replaceAll(' ', '_'),
+                  'name': trimmed,
+                },
+                conflictAlgorithm: ConflictAlgorithm.ignore,
+              );
+            }
           }
         }
 

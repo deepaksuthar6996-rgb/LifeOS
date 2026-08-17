@@ -20,22 +20,8 @@ class CalendarScreen extends ConsumerStatefulWidget {
 class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   Color get _accentColor => Theme.of(context).colorScheme.primary;
 
-  Color _getCategoryColor(String category) {
-    switch (category.toLowerCase().trim()) {
-      case 'vlsi':
-        return _accentColor;
-      case 'cybersecurity':
-        return AppTheme.crimsonAccent;
-      case 'gamedev':
-        return AppTheme.purpleAccent;
-      case 'fitness':
-      case 'health':
-        return Colors.greenAccent;
-      case 'career':
-        return Colors.amberAccent;
-      default:
-        return _accentColor;
-    }
+  Color _getCategoryColor(String category) {
+    return AppTheme.getCategoryColor(context, category);
   }
 
   void _showAddEventDialog(BuildContext context, DateTime selectedDate) {

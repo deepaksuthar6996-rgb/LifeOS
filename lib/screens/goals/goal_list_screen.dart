@@ -7,6 +7,11 @@ import '../dashboard/dashboard_screen.dart';
 import 'goal_detail_screen.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hover_card.dart';
+import '../../features/goals/category_provider.dart';
+import '../../core/database/backup_service.dart';
+import '../../features/dashboard/dashboard_provider.dart';
+import '../../features/goals/goal_detail_provider.dart';
+import '../../features/calendar/calendar_provider.dart';
 
 class GoalListScreen extends ConsumerWidget {
   const GoalListScreen({super.key});
@@ -83,7 +88,7 @@ class GoalListScreen extends ConsumerWidget {
       body: goalsAsync.when(
         data: (goals) {
           if (goals.isEmpty) {
-            return _buildEmptyState(context);
+            return _buildEmptyState(context, ref);
           }
           return RefreshIndicator(
             onRefresh: () async {
@@ -162,7 +167,7 @@ class GoalListScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32.0),
@@ -194,9 +199,9 @@ class GoalListScreen extends ConsumerWidget {
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             const Text(
-              'Chart your path to mastery. Set your first strategic milestone and track your execution offline.',
+              'Create your first goal or import an AI-generated roadmap to start tracking your execution and milestones.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -212,6 +217,76 @@ class GoalListScreen extends ConsumerWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.indigoAccent,
                 foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () async {
+                try {
+                  final result = await BackupService.instance.importBackupFile();
+                  if (result == null || !context.mounted) return;
+                  if (result.success) {
+                    ref.invalidate(dashboardProvider);
+                    ref.invalidate(goalProvider);
+                    ref.invalidate(calendarProvider);
+                    ref.invalidate(goalDetailProvider);
+                    ref.invalidate(categoryProvider);
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: AppTheme.cardBackground,
+                        content: Row(
+                          children: [
+                            const Icon(Icons.cloud_done_rounded, color: Colors.tealAccent),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                result.summaryMessage,
+                                style: const TextStyle(
+                                    color: Colors.white, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: Colors.red.shade900,
+                        content: Text(
+                          result.errorMessage ?? 'Restore failed.',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: Colors.red.shade900,
+                        content: Text(
+                          'Import error: $e',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+              icon: const Icon(Icons.cloud_download_rounded),
+              label: const Text('Import AI Roadmap'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white70,
+                side: const BorderSide(color: AppColors.border),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -241,21 +316,7 @@ class _GoalCard extends ConsumerWidget {
   const _GoalCard({required this.goal});
 
   Color _getCategoryColor(BuildContext context, String category) {
-    switch (category.toLowerCase().trim()) {
-      case 'vlsi':
-        return Theme.of(context).colorScheme.primary;
-      case 'cybersecurity':
-        return AppTheme.crimsonAccent;
-      case 'gamedev':
-        return AppTheme.purpleAccent;
-      case 'fitness':
-      case 'health':
-        return Colors.greenAccent;
-      case 'career':
-        return Colors.amberAccent;
-      default:
-        return Theme.of(context).colorScheme.primary;
-    }
+    return AppTheme.getCategoryColor(context, category);
   }
 
   @override
@@ -513,20 +574,13 @@ class _CreateGoalBottomSheetState
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _categoryController = TextEditingController(text: 'VLSI');
+  final _categoryController = TextEditingController(text: 'Career');
 
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 30));
   double _priority = 3.0;
   bool _isSaving = false;
 
-  final List<String> _suggestedCategories = [
-    'VLSI',
-    'Cybersecurity',
-    'GameDev',
-    'Career',
-    'Health',
-    'Learning',
-  ];
+
 
   @override
   void dispose() {
@@ -566,7 +620,71 @@ class _CreateGoalBottomSheetState
     }
   }
 
-  Future<void> _submitGoal() async {
+    Future<void> _showAddCategoryDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final newCat = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Add Custom Category', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: 'Category Name',
+              labelStyle: const TextStyle(color: Colors.white70),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.border),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            validator: (val) {
+              if (val == null || val.trim().isEmpty) {
+                return 'Please enter a category name';
+              }
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context, controller.text.trim());
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+
+    if (newCat != null && newCat.isNotEmpty) {
+      await ref.read(categoryProvider.notifier).addCategory(newCat);
+      setState(() {
+        _categoryController.text = newCat;
+      });
+    }
+  }
+
+Future<void> _submitGoal() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -583,6 +701,10 @@ class _CreateGoalBottomSheetState
     );
 
     try {
+      final categoryStr = _categoryController.text.trim();
+      if (categoryStr.isNotEmpty) {
+        await ref.read(categoryProvider.notifier).addCategory(categoryStr);
+      }
       await ref.read(goalProvider.notifier).addGoal(newGoal);
       if (mounted) {
         Navigator.of(context).pop();
@@ -694,33 +816,61 @@ class _CreateGoalBottomSheetState
                 },
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: _suggestedCategories.map((cat) {
-                  final isSelected =
-                      _categoryController.text.trim().toLowerCase() ==
-                          cat.toLowerCase();
-                  return ChoiceChip(
-                    label: Text(
-                      cat,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isSelected ? Colors.white : Colors.white70,
+Consumer(
+                builder: (context, ref, child) {
+                  final categoriesAsync = ref.watch(categoryProvider);
+                  return categoriesAsync.when(
+                    data: (categories) {
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          ...categories.map((cat) {
+                            final isSelected =
+                                _categoryController.text.trim().toLowerCase() ==
+                                    cat.toLowerCase();
+                            return ChoiceChip(
+                              label: Text(
+                                cat,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isSelected ? Colors.white : Colors.white70,
+                                ),
+                              ),
+                              selected: isSelected,
+                              selectedColor: Theme.of(context).colorScheme.primary,
+                              backgroundColor: AppColors.background,
+                              onSelected: (selected) {
+                                if (selected) {
+                                  setState(() {
+                                    _categoryController.text = cat;
+                                  });
+                                }
+                              },
+                            );
+                          }),
+                          ChoiceChip(
+                            avatar: const Icon(Icons.add_rounded, size: 16, color: Colors.white70),
+                            label: const Text('Add Custom'),
+                            selected: false,
+                            backgroundColor: AppColors.background,
+                            labelStyle: const TextStyle(fontSize: 12, color: Colors.white70),
+                            side: const BorderSide(color: AppColors.border),
+                            onSelected: (_) => _showAddCategoryDialog(context),
+                          ),
+                        ],
+                      );
+                    },
+                    loading: () => const Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.indigoAccent),
                       ),
                     ),
-                    selected: isSelected,
-                    selectedColor: Theme.of(context).colorScheme.primary,
-                    backgroundColor: AppColors.background,
-                    onSelected: (selected) {
-                      if (selected) {
-                        setState(() {
-                          _categoryController.text = cat;
-                        });
-                      }
-                    },
+                    error: (err, stack) => Text('Error: $err', style: const TextStyle(color: Colors.redAccent)),
                   );
-                }).toList(),
+                },
               ),
               const SizedBox(height: 14),
               // Description Field

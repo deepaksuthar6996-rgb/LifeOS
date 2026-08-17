@@ -1,3 +1,9 @@
+import '../../core/database/backup_service.dart';
+import 'widgets/quick_add_dialog.dart';
+import '../../features/goals/category_provider.dart';
+import '../../features/goals/goal_provider.dart';
+import '../../features/calendar/calendar_provider.dart';
+import '../../features/goals/goal_detail_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -23,21 +29,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isSystemInsightsExpanded = false;
 
   Color _getCategoryColor(String category) {
-    switch (category.toLowerCase().trim()) {
-      case 'vlsi':
-        return Theme.of(context).colorScheme.primary;
-      case 'cybersecurity':
-        return AppTheme.crimsonAccent;
-      case 'gamedev':
-        return AppTheme.purpleAccent;
-      case 'fitness':
-      case 'health':
-        return Colors.greenAccent;
-      case 'career':
-        return Colors.amberAccent;
-      default:
-        return Theme.of(context).colorScheme.primary;
-    }
+    return AppTheme.getCategoryColor(context, category);
   }
 
   List<DashboardTaskItem> _filterTasks(List<DashboardTaskItem> tasks) {
@@ -150,6 +142,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       body: AmbientGlowBackground(
         child: dashboardAsync.when(
         data: (state) {
+          if (state.totalActiveGoals == 0) {
+            return _buildOnboardingEmptyState(context, ref);
+          }
           final filteredTasks = _filterTasks(state.incompleteTasks);
 
           return RefreshIndicator(
@@ -863,6 +858,142 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ]
         ],
+      ),
+    );
+  }
+
+  Widget _buildOnboardingEmptyState(BuildContext context, WidgetRef ref) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppTheme.cardBackground,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                Icons.rocket_launch_rounded,
+                size: 56,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Begin Your Ascent',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Create your first goal or import an AI-generated roadmap to start tracking your execution and milestones.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14.5,
+                color: Colors.white60,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => const QuickAddDialog(),
+                );
+              },
+              icon: const Icon(Icons.add_circle_outline_rounded),
+              label: const Text('Create Your First Goal'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.indigoAccent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () async {
+                try {
+                  final result = await BackupService.instance.importBackupFile();
+                  if (result == null || !context.mounted) return;
+                  if (result.success) {
+                    ref.invalidate(dashboardProvider);
+                    ref.invalidate(goalProvider);
+                    ref.invalidate(calendarProvider);
+                    ref.invalidate(goalDetailProvider);
+                    ref.invalidate(categoryProvider);
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: AppTheme.cardBackground,
+                        content: Row(
+                          children: [
+                            const Icon(Icons.cloud_done_rounded, color: Colors.tealAccent),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                result.summaryMessage,
+                                style: const TextStyle(
+                                    color: Colors.white, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: Colors.red.shade900,
+                        content: Text(
+                          result.errorMessage ?? 'Restore failed.',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: Colors.red.shade900,
+                        content: Text(
+                          'Import error: $e',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+              icon: const Icon(Icons.cloud_download_rounded),
+              label: const Text('Import AI Roadmap'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white70,
+                side: const BorderSide(color: AppColors.border),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

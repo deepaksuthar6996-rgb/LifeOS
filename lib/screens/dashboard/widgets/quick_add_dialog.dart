@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../features/goals/category_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/database/db_helper.dart';
@@ -36,17 +37,10 @@ class _QuickAddDialogState extends ConsumerState<QuickAddDialog> {
   // Goal Form State
   final _goalTitleController = TextEditingController();
   final _goalDescController = TextEditingController();
-  String _selectedCategory = 'VLSI';
+  String _selectedCategory = 'Career';
   DateTime _goalTargetDate = DateTime.now().add(const Duration(days: 30));
   double _goalPriority = 3.0;
 
-  final List<String> _categories = [
-    'VLSI',
-    'Cybersecurity',
-    'GameDev',
-    'Fitness',
-    'Career',
-  ];
 
   final List<int> _presetMinutes = [15, 30, 45, 60, 90, 120];
 
@@ -154,7 +148,71 @@ class _QuickAddDialogState extends ConsumerState<QuickAddDialog> {
     }
   }
 
-  Future<void> _submit() async {
+    Future<void> _showAddCategoryDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final newCat = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Add Custom Category', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: 'Category Name',
+              labelStyle: const TextStyle(color: Colors.white70),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.border),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            validator: (val) {
+              if (val == null || val.trim().isEmpty) {
+                return 'Please enter a category name';
+              }
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context, controller.text.trim());
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+
+    if (newCat != null && newCat.isNotEmpty) {
+      await ref.read(categoryProvider.notifier).addCategory(newCat);
+      setState(() {
+        _selectedCategory = newCat;
+      });
+    }
+  }
+
+Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -200,6 +258,11 @@ class _QuickAddDialogState extends ConsumerState<QuickAddDialog> {
         ref.invalidate(goalDetailProvider(_selectedGoalId!));
       } else {
         final id = 'goal_${DateTime.now().millisecondsSinceEpoch}';
+        final categoryStr = _selectedCategory.trim();
+        if (categoryStr.isNotEmpty) {
+          await ref.read(categoryProvider.notifier).addCategory(categoryStr);
+        }
+
         final goal = Goal(
           id: id,
           title: _goalTitleController.text.trim(),
@@ -605,33 +668,61 @@ class _QuickAddDialogState extends ConsumerState<QuickAddDialog> {
                 const Text('Category',
                     style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _categories.map((cat) {
-                    final isSelected = _selectedCategory == cat;
-                    return ChoiceChip(
-                      label: Text(cat),
-                      selected: isSelected,
-                      selectedColor: AppColors.accentPurple,
-                      backgroundColor: AppColors.background,
-                      labelStyle: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? Colors.white : Colors.white70,
-                      ),
-                      side: BorderSide(
-                        color: isSelected ? AppColors.accentPurple : AppColors.border,
-                      ),
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() {
-                            _selectedCategory = cat;
-                          });
-                        }
+                Consumer(
+                  builder: (context, ref, child) {
+                    final categoriesAsync = ref.watch(categoryProvider);
+                    return categoriesAsync.when(
+                      data: (categories) {
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ...categories.map((cat) {
+                              final isSelected = _selectedCategory.toLowerCase().trim() == cat.toLowerCase().trim();
+                              return ChoiceChip(
+                                label: Text(cat),
+                                selected: isSelected,
+                                selectedColor: AppColors.accentPurple,
+                                backgroundColor: AppColors.background,
+                                labelStyle: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected ? Colors.white : Colors.white70,
+                                ),
+                                side: BorderSide(
+                                  color: isSelected ? AppColors.accentPurple : AppColors.border,
+                                ),
+                                onSelected: (selected) {
+                                  if (selected) {
+                                    setState(() {
+                                      _selectedCategory = cat;
+                                    });
+                                  }
+                                },
+                              );
+                            }),
+                            ChoiceChip(
+                              avatar: const Icon(Icons.add_rounded, size: 16, color: Colors.white70),
+                              label: const Text('Add Custom'),
+                              selected: false,
+                              backgroundColor: AppColors.background,
+                              labelStyle: const TextStyle(fontSize: 12, color: Colors.white70),
+                              side: const BorderSide(color: AppColors.border),
+                              onSelected: (_) => _showAddCategoryDialog(context),
+                            ),
+                          ],
+                        );
                       },
+                      loading: () => const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.indigoAccent),
+                        ),
+                      ),
+                      error: (err, stack) => Text('Error: $err', style: const TextStyle(color: Colors.redAccent)),
                     );
-                  }).toList(),
+                  },
                 ),
                 const SizedBox(height: 14),
 

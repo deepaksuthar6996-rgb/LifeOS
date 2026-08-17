@@ -30,6 +30,36 @@ class AppTheme {
   static const Color crimsonAccent = AppColors.accentCrimson;
   static const Color purpleAccent = AppColors.accentPurple;
 
+  static Color getCategoryColor(BuildContext context, String category) {
+    switch (category.toLowerCase().trim()) {
+      case 'career':
+        return AppColors.accentAmber;
+      case 'health':
+      case 'fitness':
+        return AppColors.accentGreen;
+      case 'skill development':
+      case 'learning':
+      case 'learning/skill development':
+        return Theme.of(context).colorScheme.primary;
+      case 'personal':
+        return AppColors.accentPurple;
+      default:
+        final name = category.trim().toLowerCase();
+        if (name.isEmpty) return Theme.of(context).colorScheme.primary;
+        final hash = name.codeUnits.fold(0, (sum, unit) => sum + unit);
+        final colors = [
+          Theme.of(context).colorScheme.primary,
+          AppColors.accentPurple,
+          AppColors.accentCrimson,
+          AppColors.accentGreen,
+          AppColors.accentAmber,
+          Colors.indigoAccent,
+          Colors.tealAccent,
+        ];
+        return colors[hash % colors.length];
+    }
+  }
+
   static ThemeData get darkTheme => themeWithAccent(AppColors.accentCyan);
 
   static ThemeData themeWithAccent(Color accentColor) {

@@ -16,21 +16,7 @@ class AnalyticsSection extends StatelessWidget {
   });
 
   Color _getCategoryColor(BuildContext context, String category) {
-    switch (category.toLowerCase().trim()) {
-      case 'vlsi':
-        return Theme.of(context).colorScheme.primary;
-      case 'cybersecurity':
-        return AppTheme.crimsonAccent;
-      case 'gamedev':
-        return AppTheme.purpleAccent;
-      case 'fitness':
-      case 'health':
-        return Colors.greenAccent;
-      case 'career':
-        return Colors.amberAccent;
-      default:
-        return Theme.of(context).colorScheme.primary;
-    }
+    return AppTheme.getCategoryColor(context, category);
   }
 
   @override
