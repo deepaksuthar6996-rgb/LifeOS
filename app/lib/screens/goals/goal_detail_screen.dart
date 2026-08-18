@@ -1362,6 +1362,7 @@ class _CreateTaskDialogState extends ConsumerState<_CreateTaskDialog> {
                         else
                           const Icon(Icons.edit_calendar_rounded,
                               size: 16, color: Colors.white38),
+                      ],
                     ),
                   ),
                 ),
